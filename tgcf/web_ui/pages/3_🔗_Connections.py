@@ -1,5 +1,4 @@
 import time
-
 import streamlit as st
 
 from tgcf.config import CONFIG, Forward, read_config, write_config
@@ -13,7 +12,7 @@ st.set_page_config(
     page_icon="🔗",
 )
 hide_st(st)
-switch_theme(st,CONFIG)
+switch_theme(st, CONFIG)
 if check_password(st):
     add_new = st.button("Add new connection")
     if add_new:
@@ -83,6 +82,23 @@ if check_password(st):
                         )
                     )
                     st.write("Write destinations one item per line")
+
+                    if CONFIG.forwards[i].topics_mapping is None:
+                        CONFIG.forwards[i].topics_mapping = {}
+
+                    st.write("DEBUG: Topics mapping exists.")  # Debug information
+
+                    topics_mapping = CONFIG.forwards[i].topics_mapping
+                    new_mapping = {}
+                    topic_keys = st.text_area("Source Topics (comma separated)", value=",".join(topics_mapping.keys()), key=f"source_topics {con}").split(",")
+
+                    st.write(f"DEBUG: Source topics: {topic_keys}")  # Debug information
+
+                    for topic in topic_keys:
+                        dest_topics = st.multiselect(f"Destination Topics for {topic}", CONFIG.forwards[i].dest, key=f"dest_topics_{topic}_{con}")
+                        new_mapping[topic] = dest_topics
+
+                    CONFIG.forwards[i].topics_mapping = new_mapping
 
                 with st.expander("Past Mode Settings"):
                     CONFIG.forwards[i].offset = int(

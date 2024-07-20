@@ -24,13 +24,13 @@ load_dotenv(env_file)
 class Forward(BaseModel):
     """Blueprint for the forward object."""
 
-    # pylint: disable=too-few-public-methods
     con_name: str = ""
     use_this: bool = True
     source: Union[int, str] = ""
     dest: List[Union[int, str]] = []
     offset: int = 0
     end: Optional[int] = 0
+    topics_mapping: Optional[Dict[str, List[str]]] = {}  # Mapping of source topics to destination topics
 
 
 class LiveSettings(BaseModel):

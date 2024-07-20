@@ -1,10 +1,8 @@
 """A bot to controll settings for tgcf live mode."""
 
 import logging
-
 import yaml
 from telethon import events
-
 from tgcf import config, const, plugins
 from tgcf.bot.utils import (
     admin_protect,
@@ -57,7 +55,6 @@ async def forward_command_handler(event):
     finally:
         raise events.StopPropagation
 
-
 @admin_protect
 async def remove_command_handler(event):
     """Handle the /remove command."""
@@ -76,10 +73,9 @@ async def remove_command_handler(event):
             raise ValueError(f"{notes}\n{display_forwards(config.CONFIG.forwards)}")
 
         parsed_args = yaml.safe_load(args)
-        source_to_remove = parsed_args.get("source")
-        CONFIG.forwards = remove_source(source_to_remove, config.CONFIG.forwards)
+        source_to_remove = parsed_args["source"]
+        remove_source(source_to_remove, config.CONFIG.forwards)
         config.from_to = await config.load_from_to(event.client, config.CONFIG.forwards)
-
         await event.respond("Success")
         write_config(config.CONFIG)
     except ValueError as err:
@@ -89,57 +85,46 @@ async def remove_command_handler(event):
     finally:
         raise events.StopPropagation
 
-
 @admin_protect
-async def style_command_handler(event):
-    """Handle the /style command"""
-    notes = """This command is used to set the style of the messages to be forwarded.
+async def topic_command_handler(event):
+    """Handle the /topic command."""
+    notes = """The `/topic` command allows you to manage topics.
+    Example: suppose you want to add topics mapping
 
-    Example: `/style bold`
+    ```
+    /topic source: <source_id>
+    topics_mapping:
+      topic1: [dest_topic1, dest_topic2]
+      topic2: [dest_topic3]
+    ```
 
-    Options are preserve,normal,bold,italics,code, strike
-
-    """.replace(
-        "    ", ""
-    )
+    <source_id> is the chat id, topics_mapping is a dictionary of source topics to lists of destination topics
+    """.replace("    ", "")
 
     try:
         args = get_args(event.message.text)
         if not args:
-            raise ValueError(f"{notes}\n")
-        _valid = [item.value for item in Style]
-        if args not in _valid:
-            raise ValueError(f"Invalid style. Choose from {_valid}")
-        CONFIG.plugins.fmt.style = args
-        await event.respond("Success")
-        write_config(CONFIG)
-    except ValueError as err:
-        logging.error(err)
-        await event.respond(str(err))
+            raise ValueError(f"{notes}")
 
+        parsed_args = yaml.safe_load(args)
+        source_id = parsed_args.get("source")
+        topics_mapping = parsed_args.get("topics_mapping", {})
+        if not source_id or not isinstance(topics_mapping, dict):
+            raise ValueError(f"Invalid arguments\n{notes}")
+
+        for forward in config.CONFIG.forwards:
+            if forward.source == source_id:
+                forward.topics_mapping = topics_mapping
+                break
+        else:
+            raise ValueError(f"Source {source_id} not found")
+
+        config.write_config(config.CONFIG)
+        await event.respond("Topics updated successfully.")
+    except ValueError as err:
+        await event.respond(str(err))
     finally:
         raise events.StopPropagation
 
-
-async def start_command_handler(event):
-    """Handle the /start command."""
-    await event.respond(CONFIG.bot_messages.start)
-
-
-async def help_command_handler(event):
-    """Handle the /help command."""
-    await event.respond(CONFIG.bot_messages.bot_help)
-
-
-def get_events():
-    _ = get_command_prefix()
-    logging.info(f"Command prefix is . for userbot and / for bot")
-    command_events = {
-        "start": (start_command_handler, events.NewMessage(pattern=f"{_}start")),
-        "forward": (forward_command_handler, events.NewMessage(pattern=f"{_}forward")),
-        "remove": (remove_command_handler, events.NewMessage(pattern=f"{_}remove")),
-        "style": (style_command_handler, events.NewMessage(pattern=f"{_}style")),
-        "help": (help_command_handler, events.NewMessage(pattern=f"{_}help")),
-    }
-
-    return command_events
+# Register the new handler
+bot.add_event_handler(topic_command_handler, events.NewMessage(pattern='/topic'))
